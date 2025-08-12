@@ -1,15 +1,30 @@
+// ===== 共有APIエンドポイント =====
+const API_URL = 'https://lucky-hat-c148.keisuke-egawa.workers.dev';
+
+// ===== 読み込み（共有） =====
 async function loadData() {
-  const res = await fetch('./data.json', { cache: 'no-store' });
-  if (!res.ok) throw new Error('data.json の読み込みに失敗しました');
-  return await res.json();
+  const res = await fetch(API_URL, { method: 'GET', cache: 'no-store' });
+  if (!res.ok) throw new Error('サーバーからの読み込みに失敗しました');
+  return await res.json(); // { headers, rows }
 }
 
+// ===== 保存（共有・自動で2リポジトリ同期） =====
+async function saveShared(headers, rows) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ headers, rows })
+  });
+  const j = await res.json();
+  if (!j.ok) throw new Error('保存に失敗しました');
+}
+
+// ===== ローカルバックアップ =====
 function storageKey() { return 'level-list:' + location.pathname; }
 
+// ===== 列定義：A..N(14列) → レベル7..1 / 進捗7..1 =====
 function defineColumnsByOrder(headers) {
   const cols = [];
-  const total = 14; // 強制的に A..N の14列を対象
-  // ヘッダ配列が短い場合は空のキーを補う
   const safeHeader = (idx) => headers[idx] ?? `__pad${idx}`;
 
   for (let i = 0; i < 7; i++) {
@@ -23,6 +38,7 @@ function defineColumnsByOrder(headers) {
   return cols;
 }
 
+// ===== テーブル構築 =====
 function buildTable(container, columns, baseRows) {
   container.innerHTML = '';
   const table = document.createElement('table');
@@ -129,6 +145,7 @@ function buildTable(container, columns, baseRows) {
   return { getRows, addRow, applyHideDone };
 }
 
+// ===== CSV出力 =====
 function toCsv(columns, rows) {
   const escape = (v) => {
     if (v == null) return '';
@@ -141,38 +158,78 @@ function toCsv(columns, rows) {
   return head + '\n' + body;
 }
 
-function mergeSavedRows(defaultRows, savedRows) {
-  const out = defaultRows.map((r, i) => Object.assign({}, r, savedRows?.[i] || {}));
-  if (savedRows && savedRows.length > defaultRows.length) {
-    for (let i = defaultRows.length; i < savedRows.length; i++) out.push(savedRows[i]);
-  }
-  return out;
+// ===== 横スライド（ドラッグ）＆ボタン =====
+function enableHorizontalSlide(scroller, stepPx) {
+  let isDown = false, startX = 0, scrollLeft = 0;
+  scroller.addEventListener('mousedown', (e) => {
+    isDown = true;
+    scroller.classList.add('dragging');
+    startX = e.pageX - scroller.offsetLeft;
+    scrollLeft = scroller.scrollLeft;
+  });
+  window.addEventListener('mouseup', () => { isDown = false; scroller.classList.remove('dragging'); });
+  scroller.addEventListener('mouseleave', () => { isDown = false; scroller.classList.remove('dragging'); });
+  scroller.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - scroller.offsetLeft;
+    const walk = (x - startX) * 1;
+    scroller.scrollLeft = scrollLeft - walk;
+  });
+
+  const leftBtn = document.getElementById('scrollLeftBtn');
+  const rightBtn = document.getElementById('scrollRightBtn');
+  const step = stepPx || 320;
+  leftBtn?.addEventListener('click', () => scroller.scrollBy({ left: -step, behavior: 'smooth' }));
+  rightBtn?.addEventListener('click', () => scroller.scrollBy({ left: step, behavior: 'smooth' }));
 }
 
+// ===== 起動 =====
+let data = null;
 (async () => {
-  const data = await loadData();
+  // 共有データ読み込み
+  data = await loadData();
+
+  // 列定義
   const columns = defineColumnsByOrder(data.headers);
 
-  const defaultRows = data.rows;
+  // ローカル保存があればマージ（バックアップ用途）
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(storageKey()) || 'null'); } catch (_) {}
-  const baseRows = mergeSavedRows(defaultRows, saved?.rows);
+  const defaultRows = data.rows;
+  const baseRows = (() => {
+    if (!saved?.rows) return defaultRows;
+    const out = defaultRows.map((r, i) => Object.assign({}, r, saved.rows[i] || {}));
+    if (saved.rows.length > defaultRows.length) {
+      for (let i = defaultRows.length; i < saved.rows.length; i++) out.push(saved.rows[i]);
+    }
+    return out;
+  })();
 
   const tableWrap = document.getElementById('tableWrap');
   const tableApi = buildTable(tableWrap, columns, baseRows);
 
-  document.getElementById('addRowBtn').addEventListener('click', () => {
+  // ボタン類
+  document.getElementById('addRowBtn')?.addEventListener('click', () => {
     tableApi.addRow();
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   });
 
-  document.getElementById('saveBtn').addEventListener('click', () => {
+  document.getElementById('saveBtn')?.addEventListener('click', async () => {
     const rows = tableApi.getRows();
-    localStorage.setItem(storageKey(), JSON.stringify({ rows }));
-    alert('保存しました（このブラウザで保持されます）');
+    try {
+      await saveShared(data.headers, rows); // 共有保存（Workerが2リポジトリ同期）
+      // バックアップとしてローカルにも保存
+      localStorage.setItem(storageKey(), JSON.stringify({ rows }));
+      alert('サーバーに保存しました（全員で共有）');
+    } catch (e) {
+      // 失敗時はローカル退避
+      localStorage.setItem(storageKey(), JSON.stringify({ rows }));
+      alert('サーバー保存に失敗しました。ローカルに退避しました。\n' + e.message);
+    }
   });
 
-  document.getElementById('downloadCsvBtn').addEventListener('click', () => {
+  document.getElementById('downloadCsvBtn')?.addEventListener('click', () => {
     const rows = tableApi.getRows();
     const csv = toCsv(columns, rows);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -186,70 +243,28 @@ function mergeSavedRows(defaultRows, savedRows) {
     URL.revokeObjectURL(url);
   });
 
-  document.getElementById('resetBtn').addEventListener('click', () => {
+  document.getElementById('resetBtn')?.addEventListener('click', () => {
     localStorage.removeItem(storageKey());
     location.reload();
   });
 
-  document.getElementById('hideDone').addEventListener('change', () => {
-    tableApi.applyHideDone();
+  document.getElementById('hideDone')?.addEventListener('change', () => tableApi.applyHideDone());
+
+  // 横スライド設定
+  document.addEventListener('DOMContentLoaded', () => {
+    const scroller = document.getElementById('tableScroller');
+    let step = 0;
+    const headRow = document.querySelector('thead tr');
+    if (headRow) {
+      const cells = Array.from(headRow.children);
+      if (cells.length >= 2) {
+        const w = cells[0].getBoundingClientRect().width + cells[1].getBoundingClientRect().width;
+        step = Math.max(280, Math.floor(w));
+      }
+    }
+    enableHorizontalSlide(scroller, step || 320);
   });
 
+  // 初期適用
   tableApi.applyHideDone();
 })();
-
-
-// ===== 横スライド（ドラッグ）＆ ボタン操作 =====
-function enableHorizontalSlide(scroller, stepPx) {
-  let isDown = false;
-  let startX = 0;
-  let scrollLeft = 0;
-
-  scroller.addEventListener('mousedown', (e) => {
-    isDown = true;
-    scroller.classList.add('dragging');
-    startX = e.pageX - scroller.offsetLeft;
-    scrollLeft = scroller.scrollLeft;
-  });
-  window.addEventListener('mouseup', () => {
-    isDown = false;
-    scroller.classList.remove('dragging');
-  });
-  scroller.addEventListener('mouseleave', () => {
-    isDown = false;
-    scroller.classList.remove('dragging');
-  });
-  scroller.addEventListener('mousemove', (e) => {
-    if (!isDown) return;
-    e.preventDefault();
-    const x = e.pageX - scroller.offsetLeft;
-    const walk = (x - startX) * 1; // 拡大率
-    scroller.scrollLeft = scrollLeft - walk;
-  });
-
-  // ボタン操作
-  const leftBtn = document.getElementById('scrollLeftBtn');
-  const rightBtn = document.getElementById('scrollRightBtn');
-  const step = stepPx || 320;
-  leftBtn?.addEventListener('click', () => {
-    scroller.scrollBy({ left: -step, behavior: 'smooth' });
-  });
-  rightBtn?.addEventListener('click', () => {
-    scroller.scrollBy({ left: step, behavior: 'smooth' });
-  });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const scroller = document.getElementById('tableScroller');
-  // 1ペア(レベル+進捗)ぶんをだいたい横移動（セル幅に依存）
-  let step = 0;
-  const firstHeaderRow = document.querySelector('thead tr');
-  if (firstHeaderRow) {
-    const cells = Array.from(firstHeaderRow.children);
-    if (cells.length >= 2) {
-      const w = cells[0].getBoundingClientRect().width + cells[1].getBoundingClientRect().width;
-      step = Math.max(280, Math.floor(w));
-    }
-  }
-  enableHorizontalSlide(scroller, step || 320);
-});
