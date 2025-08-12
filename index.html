@@ -6,34 +6,42 @@
   <title>レベル管理リスト</title>
   <style>
     :root {
-      --odd-head-bg: #f0f7ff;
+      --level-head-bg: #f0f7ff;
       --table-border: #ddd;
     }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; margin: 24px; }
-    h1 { font-size: 20px; margin-bottom: 8px; }
-    .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; margin: 16px; }
+    h1 { font-size: 20px; margin: 8px 0 12px; }
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
     .toolbar button { padding: 8px 12px; border: 1px solid #ccc; background: #f7f7f7; cursor: pointer; border-radius: 8px; }
     .toolbar button:hover { background: #eee; }
     .toolbar label { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; }
-    table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--table-border); border-radius: 10px; }
+    table { border-collapse: collapse; width: 100%; min-width: 880px; }
     th, td { border: 1px solid var(--table-border); padding: 8px; vertical-align: top; }
     th { background: #fafafa; position: sticky; top: 0; z-index: 1; font-weight: 600; }
-    th.level { background: var(--odd-head-bg); }
-    select, input[type="text"] { width: 100%; padding: 6px; box-sizing: border-box; }
+    th.level { background: var(--level-head-bg); }
+    select, input[type="text"] { width: 100%; padding: 6px; }
     .note { color: #555; font-size: 12px; margin-top: 8px; }
+    @media (max-width: 640px) {
+      h1 { font-size: 18px; }
+      th, td { padding: 6px; }
+      select, input[type="text"] { padding: 5px; }
+      table { min-width: 720px; }
+    }
   </style>
 </head>
 <body>
-  <h1>レベル管理リスト（左=レベル7 → 右=レベル1 ／ 各進捗＋最終進捗）</h1>
+  <h1>レベル管理リスト（左=レベル7 → 1）</h1>
   <div class="toolbar">
     <button id="addRowBtn">行を追加</button>
     <button id="saveBtn">保存</button>
     <button id="downloadCsvBtn">CSVをダウンロード</button>
     <button id="resetBtn">初期データへ戻す</button>
-    <label><input type="checkbox" id="hideDone"> 「済」を非表示（進捗列）</label>
+    <label><input type="checkbox" id="hideDone"> 「済」を非表示（進捗列を対象）</label>
   </div>
-  <div id="tableWrap"></div>
-  <p class="note">※ GitHub Pagesでそのまま公開可能。データはブラウザのローカルに保存されます（個人・オーナー情報は一切含まれません）。</p>
+  <div class="table-scroll"><div id="tableWrap"></div></div>
+  <p class="note">※ GitHub Pagesで静的公開可能。データはこのブラウザに保存されます（個人・オーナー情報は含まれません）。</p>
   <script src="./script.js"></script>
 </body>
 </html>

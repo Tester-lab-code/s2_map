@@ -4,31 +4,21 @@ async function loadData() {
   return await res.json();
 }
 
-function storageKey() {
-  // ページごとに分かれるキー
-  return 'level-list:' + location.pathname;
-}
+function storageKey() { return 'level-list:' + location.pathname; }
 
-function defineColumns(headers) {
-  // headers は元のデータ列キー（A,B,C... or 名前）
-  const pairs = Math.floor(headers.length / 2);
-  const startLevel = Math.min(7, pairs || 7); // ペアが0でも7から
+function defineColumnsByOrder(headers) {
   const cols = [];
+  const total = Math.min(headers.length, 14); // A〜N
+  const pairs = Math.min(Math.floor(total / 2), 7);
 
-  // 左側から レベル7/進捗7, レベル6/進捗6 ... の順に並べる
   for (let i = 0; i < pairs; i++) {
-    const levelNo = startLevel - i;
-    // 元配列の末尾側から拾う（降順）
-    const j = pairs - 1 - i;
-    const levelKey = headers[2*j];
-    const progKey  = headers[2*j + 1];
+    const levelNo = 7 - i;
+    const levelKey = headers[2*i];
+    const progKey  = headers[2*i + 1];
 
     cols.push({ key: levelKey, label: `レベル${levelNo}`, type: 'text' });
     cols.push({ key: progKey,  label: `進捗${levelNo}`,  type: 'select' });
   }
-
-  // 右端に 最終進捗 を追加（独立列）
-  cols.push({ key: '__final_progress', label: '最終進捗', type: 'select' });
 
   return cols;
 }
@@ -53,7 +43,7 @@ function buildTable(container, columns, baseRows) {
     const td = document.createElement('td');
     if (col.type === 'select') {
       const sel = document.createElement('select');
-      const options = ["", "空白", "済"];
+      const options = ["", "済"];
       options.forEach(opt => {
         const o = document.createElement('option');
         o.value = opt;
@@ -94,7 +84,6 @@ function buildTable(container, columns, baseRows) {
     return false;
   }
 
-  // baseRows は {原キー: 値, '__final_progress': 値?} の配列
   baseRows.forEach(row => {
     const tr = document.createElement('tr');
     columns.forEach(col => {
@@ -154,27 +143,19 @@ function toCsv(columns, rows) {
 
 function mergeSavedRows(defaultRows, savedRows) {
   const out = defaultRows.map((r, i) => Object.assign({}, r, savedRows?.[i] || {}));
-  // 追加行がある場合は後ろに足す
   if (savedRows && savedRows.length > defaultRows.length) {
-    for (let i = defaultRows.length; i < savedRows.length; i++) {
-      out.push(savedRows[i]);
-    }
+    for (let i = defaultRows.length; i < savedRows.length; i++) out.push(savedRows[i]);
   }
   return out;
 }
 
 (async () => {
   const data = await loadData();
-  const columns = defineColumns(data.headers);
+  const columns = defineColumnsByOrder(data.headers);
 
-  // 保存データを読み込み
+  const defaultRows = data.rows;
   let saved = null;
-  try {
-    saved = JSON.parse(localStorage.getItem(storageKey()) || 'null');
-  } catch (_) {}
-
-  // 保存データの rows をマージ（最終進捗キーがない既存行は空文字に）
-  const defaultRows = data.rows.map(r => ({ ...r, '__final_progress': '' }));
+  try { saved = JSON.parse(localStorage.getItem(storageKey()) || 'null'); } catch (_) {}
   const baseRows = mergeSavedRows(defaultRows, saved?.rows);
 
   const tableWrap = document.getElementById('tableWrap');
@@ -214,6 +195,5 @@ function mergeSavedRows(defaultRows, savedRows) {
     tableApi.applyHideDone();
   });
 
-  // 初期適用
   tableApi.applyHideDone();
 })();
