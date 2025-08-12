@@ -16,7 +16,10 @@
     .toolbar button { padding: 8px 12px; border: 1px solid #ccc; background: #f7f7f7; cursor: pointer; border-radius: 8px; }
     .toolbar button:hover { background: #eee; }
     .toolbar label { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; }
-    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--table-border); border-radius: 10px; }
+    .scrollbar { display: flex; gap: 8px; align-items: center; margin: 4px 0 8px; }
+    .scrollbar button { padding: 6px 10px; border: 1px solid #ccc; background: #fff; border-radius: 8px; }
+    .table-scroll { position: relative; overflow: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--table-border); border-radius: 10px; cursor: grab; }
+    .table-scroll.dragging { cursor: grabbing; }
     table { border-collapse: collapse; width: 100%; min-width: 880px; }
     th, td { border: 1px solid var(--table-border); padding: 8px; vertical-align: top; }
     th { background: #fafafa; position: sticky; top: 0; z-index: 1; font-weight: 600; }
@@ -40,7 +43,14 @@
     <button id="resetBtn">初期データへ戻す</button>
     <label><input type="checkbox" id="hideDone"> 「済」を非表示（進捗列を対象）</label>
   </div>
-  <div class="table-scroll"><div id="tableWrap"></div></div>
+  <div class="scrollbar">
+    <button id="scrollLeftBtn" aria-label="左へスクロール">◀ 左へ</button>
+    <span>横にドラッグ／フリックでもスクロールできます</span>
+    <button id="scrollRightBtn" aria-label="右へスクロール">右へ ▶</button>
+  </div>
+  <div class="table-scroll" id="tableScroller">
+    <div id="tableWrap"></div>
+  </div>
   <p class="note">※ GitHub Pagesで静的公開可能。データはこのブラウザに保存されます（個人・オーナー情報は含まれません）。</p>
   <script src="./script.js"></script>
 </body>

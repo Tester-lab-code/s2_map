@@ -8,18 +8,18 @@ function storageKey() { return 'level-list:' + location.pathname; }
 
 function defineColumnsByOrder(headers) {
   const cols = [];
-  const total = Math.min(headers.length, 14); // A〜N
-  const pairs = Math.min(Math.floor(total / 2), 7);
+  const total = 14; // 強制的に A..N の14列を対象
+  // ヘッダ配列が短い場合は空のキーを補う
+  const safeHeader = (idx) => headers[idx] ?? `__pad${idx}`;
 
-  for (let i = 0; i < pairs; i++) {
-    const levelNo = 7 - i;
-    const levelKey = headers[2*i];
-    const progKey  = headers[2*i + 1];
+  for (let i = 0; i < 7; i++) {
+    const levelNo = 7 - i;         // 7..1
+    const levelKey = safeHeader(2*i);
+    const progKey  = safeHeader(2*i + 1);
 
     cols.push({ key: levelKey, label: `レベル${levelNo}`, type: 'text' });
     cols.push({ key: progKey,  label: `進捗${levelNo}`,  type: 'select' });
   }
-
   return cols;
 }
 
@@ -197,3 +197,59 @@ function mergeSavedRows(defaultRows, savedRows) {
 
   tableApi.applyHideDone();
 })();
+
+
+// ===== 横スライド（ドラッグ）＆ ボタン操作 =====
+function enableHorizontalSlide(scroller, stepPx) {
+  let isDown = false;
+  let startX = 0;
+  let scrollLeft = 0;
+
+  scroller.addEventListener('mousedown', (e) => {
+    isDown = true;
+    scroller.classList.add('dragging');
+    startX = e.pageX - scroller.offsetLeft;
+    scrollLeft = scroller.scrollLeft;
+  });
+  window.addEventListener('mouseup', () => {
+    isDown = false;
+    scroller.classList.remove('dragging');
+  });
+  scroller.addEventListener('mouseleave', () => {
+    isDown = false;
+    scroller.classList.remove('dragging');
+  });
+  scroller.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - scroller.offsetLeft;
+    const walk = (x - startX) * 1; // 拡大率
+    scroller.scrollLeft = scrollLeft - walk;
+  });
+
+  // ボタン操作
+  const leftBtn = document.getElementById('scrollLeftBtn');
+  const rightBtn = document.getElementById('scrollRightBtn');
+  const step = stepPx || 320;
+  leftBtn?.addEventListener('click', () => {
+    scroller.scrollBy({ left: -step, behavior: 'smooth' });
+  });
+  rightBtn?.addEventListener('click', () => {
+    scroller.scrollBy({ left: step, behavior: 'smooth' });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const scroller = document.getElementById('tableScroller');
+  // 1ペア(レベル+進捗)ぶんをだいたい横移動（セル幅に依存）
+  let step = 0;
+  const firstHeaderRow = document.querySelector('thead tr');
+  if (firstHeaderRow) {
+    const cells = Array.from(firstHeaderRow.children);
+    if (cells.length >= 2) {
+      const w = cells[0].getBoundingClientRect().width + cells[1].getBoundingClientRect().width;
+      step = Math.max(280, Math.floor(w));
+    }
+  }
+  enableHorizontalSlide(scroller, step || 320);
+});
