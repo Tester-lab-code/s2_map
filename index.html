@@ -18,21 +18,22 @@
     table { border-collapse: collapse; width: 100%; table-layout: fixed; }
     th, td { border: 1px solid var(--table-border); padding: 8px; vertical-align: top; }
     th { background: #fafafa; position: sticky; top: 0; z-index: 1; font-weight: 600; }
-    th.odd { background: var(--odd-head-bg); }
+    th.level { background: var(--odd-head-bg); }
     select, input[type="text"] { width: 100%; padding: 6px; box-sizing: border-box; }
     .note { color: #555; font-size: 12px; margin-top: 8px; }
   </style>
 </head>
 <body>
-  <h1>レベル管理リスト（奇数列=データ／偶数列=プルダウン）</h1>
+  <h1>レベル管理リスト（左=レベル7 → 右=レベル1 ／ 各進捗＋最終進捗）</h1>
   <div class="toolbar">
     <button id="addRowBtn">行を追加</button>
+    <button id="saveBtn">保存</button>
     <button id="downloadCsvBtn">CSVをダウンロード</button>
     <button id="resetBtn">初期データへ戻す</button>
-    <label><input type="checkbox" id="hideDone"> 「済」を非表示（偶数列）</label>
+    <label><input type="checkbox" id="hideDone"> 「済」を非表示（進捗列）</label>
   </div>
   <div id="tableWrap"></div>
-  <p class="note">※ GitHub Pagesでそのまま公開可能。個人情報やオーナー情報は含まれません。</p>
+  <p class="note">※ GitHub Pagesでそのまま公開可能。データはブラウザのローカルに保存されます（個人・オーナー情報は一切含まれません）。</p>
   <script src="./script.js"></script>
 </body>
 </html>
